@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School IT Helpdesk</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .tickets {
+            margin-top: 30px;
+        }
+        .ticket {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .ticket-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .status-open {
+            color: #f44336;
+        }
+        .status-in-progress {
+            color: #2196F3;
+        }
+        .status-resolved {
+            color: #4CAF50;
+        }
+        .filters {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .urgent {
+            background: #fff3f3;
+        }
+        @media (max-width: 600px) {
+            .ticket-header {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>School IT Helpdesk</h1>
+        
+        <form id="ticketForm">
+            <div class="form-group">
+                <label for="name">Your Name:</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="location">Location:</label>
+                <input type="text" id="location" placeholder="e.g., Lab 1, Staff Room" required>
+            </div>
+            <div class="form-group">
+                <label for="issue">Issue Type:</label>
+                <select id="issue" required>
+                    <option value="">Select an issue</option>
+                    <option value="Hardware">Hardware Problem</option>
+                    <option value="Software">Software Problem</option>
+                    <option value="Network">Network/Internet</option>
+                    <option value="Printer">Printer Issue</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="priority">Priority:</label>
+                <select id="priority" required>
+                    <option value="Normal">Normal</option>
+                    <option value="Urgent">Urgent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea id="description" rows="4" required></textarea>
+            </div>
+            <button type="submit">Submit Ticket</button>
+        </form>
+
+        <div class="tickets">
+            <h2>Active Tickets</h2>
+            <div class="filters">
+                <select id="statusFilter">
+                    <option value="all">All Tickets</option>
+                    <option value="open">Open</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                </select>
+                <button onclick="exportTickets()">Export to CSV</button>
+            </div>
+            <div id="ticketsList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize tickets from localStorage or empty array
+        let tickets = JSON.parse(localStorage.getItem('tickets')) || [];
+
+        function saveTickets() {
+            localStorage.setItem('tickets', JSON.stringify(tickets));
+        }
+
+        document.getElementById('ticketForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const ticket = {
+                id: uuid.v4(),
+                name: document.getElementById('name').value,
+                location: document.getElementById('location').value,
+                issue: document.getElementById('issue').value,
+                priority: document.getElementById('priority').value,
+                description: document.getElementById('description').value,
+                status: 'open',
+                date: new Date().toLocaleString(),
+                updates: []
+            };
+
+            tickets.unshift(ticket);
+            saveTickets();
+            this.reset();
+            displayTickets();
+        });
+
+        function updateStatus(id, newStatus) {
+            const ticket = tickets.find(t => t.id === id);
+            if (ticket) {
+                ticket.status = newStatus;
+                if (newStatus === 'in-progress') {
+                    const comment = prompt('Add a comment (optional):');
+                    if (comment) {
+                        ticket.updates.push({
+                            date: new Date().toLocaleString(),
+                            comment: comment
+                        });
+                    }
+                }
+                saveTickets();
+                displayTickets();
+            }
+        }
+
+        function displayTickets() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const filteredTickets = statusFilter === 'all' 
+                ? tickets 
+                : tickets.filter(t => t.status === statusFilter);
+
+            const ticketsList = document.getElementById('ticketsList');
+            ticketsList.innerHTML = filteredTickets.map(ticket => `
+                <div class="ticket ${ticket.priority === 'Urgent' ? 'urgent' : ''}">
+                    <div class="ticket-header">
+                        <div>
+                            <strong>${ticket.issue}</strong> - ${ticket.name}
+                            <br>
+                            <small>${ticket.date}</small>
+                        </div>
+                        <div class="status-${ticket.status}">
+                            ${ticket.status.toUpperCase()}
+                        </div>
+                    </div>
+                    <div>Location: ${ticket.location}</div>
+                    <div>Priority: ${ticket.priority}</div>
+                    <p>${ticket.description}</p>
+                    ${ticket.updates.map(update => `
+                        <div style="margin-top: 10px; padding-left: 10px; border-left: 2px solid #ddd;">
+                            <small>${update.date}</small>
+                            <div>${update.comment}</div>
+                        </div>
+                    `).join('')}
+                    <div style="margin-top: 10px;">
+                        ${ticket.status === 'open' ? `
+                            <button onclick="updateStatus('${ticket.id}', 'in-progress')">Start Working</button>
+                        ` : ticket.status === 'in-progress' ? `
+                            <button onclick="updateStatus('${ticket.id}', 'resolved')">Mark Resolved</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function exportTickets() {
+            const csvContent = tickets.map(ticket => {
+                return `"${ticket.date}","${ticket.name}","${ticket.location}","${ticket.issue}","${ticket.priority}","${ticket.status}","${ticket.description.replace(/"/g, '""')}"`
+            }).join('\n');
+            
+            const header = '"Date","Name","Location","Issue Type","Priority","Status","Description"\n';
+            const blob = new Blob([header + csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tickets-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        // Initial display
+        displayTickets();
+
+        // Setup filter listener
+        document.getElementById('statusFilter').addEventListener('change', displayTickets);
+    </script>
+</body>
+</html>
